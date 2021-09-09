@@ -15,7 +15,7 @@ app.use(express.urlencoded({ extended: true }));
 mongoose.connect('mongodb://localhost:27017/userDB', { useNewUrlParser: true });
 
 const userSchema = new mongoose.Schema({
-    fullName: String,
+    displayName: String,
     userName: String,
     password: String
 });
@@ -91,10 +91,6 @@ app.post("/login", function (req, res) { // handles POST request for login route
         }
     });
 });
-
-
-
-
 
 
 app.listen(3000, function () {
