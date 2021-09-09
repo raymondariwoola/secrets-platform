@@ -4,10 +4,11 @@ import express from 'express'
 import bodyParser from "body-parser"
 import ejs from "ejs"
 import mongoose from "mongoose"
-import encrypt from "mongoose-encryption"
+// import encrypt from "mongoose-encryption" // Cipher encryption
+import md5 from "md5"
 
 const app = express();
-const secret = process.env.SECRET;
+// const secret = process.env.SECRET; // dotenv - store cipher key
 
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
@@ -20,12 +21,16 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
+// userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] }); // encrypt database using mongoose-encryption plugin
 
 const User = mongoose.model("User", userSchema);
 
 function addNewUser(res, credential) {
-    const newUser = new User(credential);
+    const newUser = new User({ 
+        displayName: credential.displayName,
+        userName: credential.userName,
+        password: md5(credential.password)
+    });
     newUser.save(function (err) {
         if (!err) {
             res.redirect("/login");
@@ -70,12 +75,12 @@ app.post("/register", function (req, res) { // handles POST request for register
 app.post("/login", function (req, res) { // handles POST request for login route
     const loginDetails = req.body;
     const userName = loginDetails.userName;
-    const password = loginDetails.password;
+    const password = md5(loginDetails.password);
 
     User.findOne({ userName: userName }, function (err, results) { // Check if user exists in DB
         if (!err) {
             if (results) { // If userName exists then check for password
-                if (results.password === password) { // If password matches then load secrets page
+                if (results.password == password) { // If password matches then load secrets page
                     res.render('secrets');
                 } else { // password mismatch
                     res.send("Invalid password");
