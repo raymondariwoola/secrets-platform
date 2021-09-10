@@ -24,7 +24,6 @@ app.use(express.urlencoded({ extended: true }));
 // app.use(bodyParser.urlencoded({ extended: false }));
 
 
-
 // Important to be placed here. After above and before below functions
 app.use(session({
     secret: "Our little secret",
@@ -38,11 +37,12 @@ app.use(passport.session());
 mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
 
 const userPosts = new mongoose.Schema({
-    postID: String,
+    userID: String,
     postContent: String
 });
 
 const userSchema = new mongoose.Schema({
+    username: String,
     email: String,
     password: String,
     googleId: String,
@@ -50,7 +50,9 @@ const userSchema = new mongoose.Schema({
     familyName: String,
     givenName: String,
     profilePhoto: String,
-    posts: [userPosts]
+    posts: [userPosts],
+    followers: [],
+    following: []
 });
 
 
@@ -65,11 +67,13 @@ passport.serializeUser(function (user, done) {
     done(null, user.id);
 });
 
+
 passport.deserializeUser(function (id, done) {
     User.findById(id, function (err, user) {
         done(err, user);
     });
 });
+
 
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -93,13 +97,16 @@ passport.use(new GoogleStrategy({
     }
 ));
 
+
 app.get("/", function (req, res) { // handles GET request for home route
     res.render('home');
 });
 
+
 app.get("/auth/google",
     passport.authenticate("google", { scope: ["profile"] })
 );
+
 
 app.get('/auth/google/secrets',
     passport.authenticate('google', { failureRedirect: '/login' }),
@@ -108,25 +115,41 @@ app.get('/auth/google/secrets',
         res.redirect('/secrets');
     });
 
+
 app.get("/login", function (req, res) { // handles GET request for login route
     res.render('login');
 });
+
 
 app.get("/register", function (req, res) { // handles GET request for register route
     res.render('register');
 });
 
+
 app.get("/secrets", function (req, res) { // handles GET request for secrets route
     if (req.isAuthenticated()) { //! if user is already authenticated then they should have access to the page
-        // req.user._id 
-        // req.user.googleId 
-        // req.user.displayName
-
-        res.render("secrets", { profilePhoto: req.user.profilePhoto, displayName: req.user.displayName });
+        User.findById(req.user._id, function (err, foundUser) {
+            if (!err) {
+                res.render("secrets", { profilePhoto: req.user.profilePhoto, displayName: req.user.displayName, posts: foundUser.posts });
+            }
+            else {
+                console.log(err);
+            }
+        });
     } else { //! if user is not already authenticated, then they should be routed to the login page
         res.redirect("/login");
     }
 });
+
+
+app.get("/submit", function (req, res) {
+    if (req.isAuthenticated()) {
+        res.render("submit");
+    } else {
+        res.redirect("/login");
+    }
+});
+
 
 app.get("/logout", function (req, res) { // handles GET request for Log out route
     req.logout();
@@ -134,10 +157,12 @@ app.get("/logout", function (req, res) { // handles GET request for Log out rout
 });
 
 
+
 app.post("/register", function (req, res) {
     User.register({ username: req.body.username }, req.body.password, function (err, user) {
         if (err) {
             console.log(err);
+            console.log(user);
             // res.send(err);
             res.redirect("/register");
         } else {
@@ -146,19 +171,14 @@ app.post("/register", function (req, res) {
             });
         }
     });
-
 });
 
 
-
-
 app.post("/login", function (req, res) {
-
     const user = new User({
         username: req.body.username,
         password: req.body.password
     });
-
     req.login(user, function (err) {
         if (err) {
             console.log(err);
@@ -168,12 +188,52 @@ app.post("/login", function (req, res) {
             });
         }
     });
-
 });
 
 
+
+app.post("/submit", function (req, res) {
+    if (req.isAuthenticated()) {
+        const submitSecretContent = req.body.secret;
+        const currentUserID = req.user.id;
+        const newPost = {
+            userID: currentUserID,
+            postContent: submitSecretContent
+        }
+        const newFollowers = "mrRay";
+        const newFollowing = "MzRayOfficial";
+
+        User.findById(currentUserID, function (err, foundUser) {
+            if (!err) {
+                foundUser.posts.push(newPost);
+                foundUser.save(function () {
+                    res.redirect('/secrets');
+                });
+            }
+            else {
+                console.log(err);
+            }
+        });
+    } else {
+        res.redirect("/login");
+    }
+});
 
 
 app.listen(3000, function () {
     console.log('Server started on port 3000.');
 });
+
+
+/* //TODO
+* Follow people
+* Check followers list
+* Check following list
+* Edit/Update/delete posts
+* login with with facebook account
+* login with twitter account
+* Set desired Display name @someone
+* Add validation to forms and Posts (Client-Side and Server-Side validation)
+* Redesign the User interface
+* Option to change profile picture
+*/
