@@ -1,97 +1,114 @@
 // using .cjs Common JS for ES6 module scope
 // all .cjs files are interpreted as Common js
-require('dotenv').config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const ejs = require("ejs");
-const app = express();
-const secret = process.env.SECRET;
 
-app.use(express.static('public'));
+require('dotenv').config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const ejs = require("ejs");
+const mongoose = require("mongoose");
+const session = require('express-session');
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
+
+const app = express();
+
+app.use(express.static("public"));
 app.set('view engine', 'ejs');
-app.use(express.urlencoded({ extended: true }));
-mongoose.connect('mongodb://localhost:27017/userDB', { useNewUrlParser: true });
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
+
+app.use(session({
+    secret: "Our little secret",
+    resave: false,
+    saveUninitialized: false
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+mongoose.connect("mongodb://localhost:27017/userDB", { useNewUrlParser: true });
+mongoose.set("useCreateIndex", true);
 
 const userSchema = new mongoose.Schema({
-    displayName: String,
     userName: String,
     password: String
 });
 
+userSchema.plugin(passportLocalMongoose);
 
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
+const User = new mongoose.model("User", userSchema);
 
-const User = mongoose.model("User", userSchema);
+passport.use(User.createStrategy());
 
-function addNewUser(res, credential) {
-    const newUser = new User(credential);
-    newUser.save(function (err) {
-        if (!err) {
-            res.redirect("/login");
-        }
-        else {
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+app.get("/", function (req, res) {
+    res.render("home");
+});
+
+app.get("/login", function (req, res) {
+    res.render("login");
+});
+
+app.get("/register", function (req, res) {
+    res.render("register");
+});
+
+app.get("/secrets", function (req, res) {
+    if (req.isAuthenticated()) {
+        res.render("secrets");
+    } else {
+        res.redirect("/login");
+    }
+});
+
+app.get("/logout", function (req, res) {
+    req.logout();
+    res.redirect("/");
+});
+
+app.post("/register", function (req, res) {
+
+    User.register({ username: req.body.username }, req.body.password, function (err, user) {
+        if (err) {
             console.log(err);
+            res.redirect("/register");
+        } else {
+            passport.authenticate("local")(req, res, function () {
+                res.redirect("/secrets");
+            });
         }
     });
-}
 
-app.get("/", function (req, res) { // handles GET request for home route
-    res.render('home');
 });
 
-app.get("/login", function (req, res) { // handles GET request for login route
-    res.render('login');
-});
+app.post("/login", function (req, res) {
 
-app.get("/register", function (req, res) { // handles GET request for register route
-    res.render('register');
-});
+    const user = new User({
+        username: req.body.username,
+        password: req.body.password
+    });
 
-
-app.post("/register", function (req, res) { // handles POST request for register route
-    const userDetails = req.body;
-    User.findOne({ userName: userDetails.userName }, function (err, results) { // Check if user already exists in DB
-        if (!err) {
-            if (results) { // If user record exists then don't allow registration. Existing user
-                res.send("User already exists");
-            }
-            else {
-                addNewUser(res, userDetails); // No record found hence add new user to database
-            }
-        }
-        else {
+    req.login(user, function (err) {
+        if (err) {
             console.log(err);
+        } else {
+            passport.authenticate("local")(req, res, function () {
+                res.redirect("/secrets");
+            });
         }
     });
+
 });
 
 
-app.post("/login", function (req, res) { // handles POST request for login route
-    const loginDetails = req.body;
-    const userName = loginDetails.userName;
-    const password = loginDetails.password;
-
-    User.findOne({ userName: userName }, function (err, results) { // Check if user exists in DB
-        if (!err) {
-            if (results) { // If userName exists then check for password
-                if (results.password === password) { // If password matches then load secrets page
-                    res.render('secrets');
-                } else { // password mismatch
-                    res.send("Invalid password");
-                }
-            }
-            else { // User does not exist in DB
-                res.send("User not found");
-            }
-            console.log(results);
-        }
-        else {
-            console.log(err);
-        }
-    });
-});
 
 
-app.listen(3000, function(){
-    console.log("Server started on port 3000");
+
+
+
+app.listen(3000, function () {
+    console.log("Server started on port 3000.");
 });
