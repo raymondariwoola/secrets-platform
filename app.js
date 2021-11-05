@@ -12,14 +12,10 @@ import findOrCreate from "mongoose-findorcreate"
 
 
 const app = express();
-// const secret = process.env.SECRET; // dotenv - store cipher key
-// const saltRounds = 10;
 
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 app.use(express.urlencoded({ extended: true }));
-// app.use(bodyParser.urlencoded({ extended: false }));
-
 
 // Important to be placed here. After above and before below functions
 app.use(session({
