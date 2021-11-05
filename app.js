@@ -4,9 +4,6 @@ import express from "express"
 import bodyParser from "body-parser"
 import ejs from "ejs"
 import mongoose from "mongoose"
-// import bcrypt from "bcrypt"
-// import encrypt from "mongoose-encryption" // Cipher encryption
-// import md5 from "md5" // MD5 Hash Algorithm
 import session from "express-session"
 import passport from "passport"
 import passportLocalMongoose from "passport-local-mongoose"
